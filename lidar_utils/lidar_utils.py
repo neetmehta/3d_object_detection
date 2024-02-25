@@ -63,9 +63,8 @@ def voxelize(point_cloud, cfg):
     z_min = cfg['z_min']
     vd, vh, vw = cfg['vd'], cfg['vh'], cfg['vw']
 
-
     points, _ = point_cloud[:, :3], point_cloud[:, 3]
-    voxel_coords = ((points - np.array([x_min, y_min, z_min]))/np.array([vw, vh, vd])).astype(np.int64)
+    voxel_coords = ((points - np.array([x_min, y_min, z_min]) - 1e-5)/np.array([vw, vh, vd])).astype(np.int32)
     return voxel_coords
 
 def point_cloud_to_tensor(cfg, point_cloud):
@@ -73,7 +72,7 @@ def point_cloud_to_tensor(cfg, point_cloud):
     T = cfg['T']
     unique_voxel_coords, inverse_index = np.unique(voxel_coords, axis=0, return_inverse=True)
     K = unique_voxel_coords.shape[0]
-    tensor = np.zeros((K, T, 7))
+    tensor = np.zeros((K, T, 7), dtype=np.float32)
     for i in range(len(unique_voxel_coords)):
         indices = np.flatnonzero(inverse_index==i)
         # print(unique_voxel_coords[i])
