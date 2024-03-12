@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import open3d as o3d
 import yaml
+from .bounding_box import limit_period
 
 def read_config(file_path):
     with open(file_path, 'r') as file:
@@ -25,6 +26,8 @@ def visualize_pc(pc, bb=None):
     vis.create_window(window_name='Point Cloud with Intensities', width=800, height=600)
     vis.get_render_option().background_color = np.asarray([0, 0, 0])  # Set the background color to black
     vis.add_geometry(pcd)
+    axes = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.5, origin=[0, 0, 0])
+    vis.add_geometry(axes)
     if bb is not None:
         bounding_boxes = []
         lines = [[0, 1], [1, 2], [2, 3], [0, 3],
@@ -107,12 +110,22 @@ def read_label(file_path):
         
     return label_list
 
+def ry_to_rz(ry):
+    angle = -ry - np.pi / 2
+
+    if angle >= np.pi:
+        angle -= np.pi
+    if angle < -np.pi:
+        angle = 2*np.pi + angle
+
+    return angle
+
 def rotz(t):
     ''' Rotation about the z-axis. '''
     c = np.cos(t)
     s = np.sin(t)
-    return np.array([[c, -s,  0],
-                     [s,  c,  0],
+    return np.array([[c, -s,  0], 
+                     [s,  c,  0], 
                      [0,  0,  1]])
     
 
@@ -129,7 +142,7 @@ def label_2_bb(label, tr_velo_2_cam):
     #     [np.sin(theta), np.cos(theta), 0.0],
     #     [0.0, 0.0, 1.0]])
 
-    theta = -theta + np.pi/2
+    theta = ry_to_rz(theta)
     R = rotz(theta)
     
     bounding_box = np.array([
@@ -158,3 +171,25 @@ def visualize_bb_from_file(velo_file, label_file, calib_file, config_file):
     label = read_label(label_file)
 
     visualize_bb(point_cloud, label, calib)
+    
+def box2corner(bboxes):
+    xyz = bboxes[:, :3]
+    h = bboxes[:, 3:4]
+    w = bboxes[:, 4:5]
+    l = bboxes[:, 5:6]
+    theta = bboxes[:, 6:7]
+    x = torch.cat((-l/2, -l/2, l/2, l/2, -l/2, -l/2, l/2, l/2), dim=1)
+    y = torch.cat((w/2, -w/2, -w/2, w/2, w/2, -w/2, -w/2, w/2), dim=1)
+    z = torch.cat((h*0, h*0, h*0, h*0, h, h, h, h), dim=1)
+
+    angle = limit_period(theta)
+    cosine = torch.cos(angle)
+    sine = torch.sin(angle)
+    new_x = cosine*x - sine*y
+    new_y = sine*x + cosine*y
+    corner_xyz = torch.stack((new_x,new_y,z), dim=-1)
+    corner_xyz = corner_xyz + torch.stack([xyz]*8, axis=1)
+
+    bev_unoriented_box = torch.cat((corner_xyz[..., 0:1].min(1)[0], corner_xyz[..., 1:2].min(1)[0], corner_xyz[..., 0:1].max(1)[0], corner_xyz[..., 1:2].max(1)[0]), axis=-1)
+    # bev_unoriented_box[:, [0,1,2,3]] = bev_unoriented_box[:, [1,3,0,2]]
+    return bev_unoriented_box
