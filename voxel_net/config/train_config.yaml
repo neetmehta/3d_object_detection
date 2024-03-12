@@ -1,3 +1,7 @@
+max_fetch: 100
+classes: ['Car', Van]
+feature_size: [200, 176]
+
 x_min: 0
 x_max: 70.4
 
@@ -57,3 +61,7 @@ rpn_deconv_block: [
     [ "deconv", [[256,256,4,4,0], 1]],
   ],
 ]
+
+# Loss
+pos_threshold: 0.6
+neg_threshold: 0.45
