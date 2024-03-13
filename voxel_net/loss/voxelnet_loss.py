@@ -18,13 +18,12 @@ class VoxelnetLoss(nn.Module):
         pred_score = pred_score.permute(0,2,3,1)
         pred_score = F.sigmoid(pred_score)
         where_pos = torch.where(pos==1)
-        reg_loss = self.smoothl1loss(pred_reg[where_pos], reg[where_pos])/pos.sum()
+        L_reg = self.smoothl1loss(pred_reg[where_pos], reg[where_pos])/pos.sum()
 
         pos_loss = F.binary_cross_entropy(pred_score[pos==1], pos[pos==1])
         neg_loss = F.binary_cross_entropy(1-pred_score[neg==1], neg[neg==1])
         
         L_cls = self.alpha*pos_loss + self.beta*neg_loss
-        L_reg = reg_loss
         
         return L_cls, L_reg
         
