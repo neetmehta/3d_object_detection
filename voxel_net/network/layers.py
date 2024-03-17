@@ -30,11 +30,13 @@ class VFE(nn.Module):
         x = x.view(-1, in_channels)
         x = self.lin_bn_relu(x)
         x = x.view(K, T, -1)
-        x[zero_pos] = 0
+        # x[zero_pos] = 0
+        x = x*(~zero_pos).unsqueeze(-1).repeat_interleave(x.shape[-1], dim=-1).float()
         aug = torch.max(x, dim=1, keepdim=True)[0]
         aug = aug.repeat(1, T, 1)
         x = torch.cat([x, aug], dim=-1)
-        x[zero_pos] = 0
+        # x[zero_pos] = 0
+        x = x*(~zero_pos).unsqueeze(-1).repeat_interleave(x.shape[-1], dim=-1).float()
         return x
         
 
