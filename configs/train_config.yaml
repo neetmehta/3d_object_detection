@@ -65,3 +65,7 @@ rpn_deconv_block: [
 # Loss
 pos_threshold: 0.6
 neg_threshold: 0.45
+
+# training
+
+num_epochs: 160

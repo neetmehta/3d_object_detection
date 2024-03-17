@@ -3,6 +3,7 @@ import torch
 import open3d as o3d
 import yaml
 from .bounding_box import limit_period
+from mmcv.ops import nms
 
 def read_config(file_path):
     with open(file_path, 'r') as file:
@@ -193,3 +194,23 @@ def box2corner(bboxes):
     bev_unoriented_box = torch.cat((corner_xyz[..., 0:1].min(1)[0], corner_xyz[..., 1:2].min(1)[0], corner_xyz[..., 0:1].max(1)[0], corner_xyz[..., 1:2].max(1)[0]), axis=-1)
     # bev_unoriented_box[:, [0,1,2,3]] = bev_unoriented_box[:, [1,3,0,2]]
     return bev_unoriented_box
+
+def pred2boxes(pred, anchors, scores, threshold=0.5, nms_iou_threshold=0.1):
+    scores = scores.permute(0,2,3,1)
+    anchors = anchors.repeat(pred.shape[0],1,1,1,1)
+
+    pred = pred.reshape(pred.shape[0],-1,7)
+    anchors = anchors.reshape(*pred.shape)
+    d = torch.sqrt(torch.pow(anchors[:, :, 4], 2) + torch.pow(anchors[:, :, 5], 2))
+    pred[..., 0] = pred[..., 0]*d + anchors[..., 0]
+    pred[..., 1] = pred[..., 1]*d + anchors[..., 1]
+    pred[..., 2] = pred[..., 2]*anchors[..., 3] + anchors[..., 2]
+    pred[..., [3,4,5]] = torch.exp(pred[..., [3,4,5]])*anchors[..., [3,4,5]]
+    pred[..., 6] = pred[..., 6] + anchors[..., 6]
+    scores = scores.reshape(*pred.shape[:-1])
+    pred = pred[scores>=threshold]
+    scores = scores[scores>threshold]
+    pred2d = box2corner(pred)
+    kept, indices = nms(pred2d, scores, iou_threshold=nms_iou_threshold)
+    pred = pred[indices]
+    return pred, kept, indices

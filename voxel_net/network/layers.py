@@ -8,10 +8,12 @@ class LinearBNReLU(nn.Module):
         super().__init__()
         self.linear = nn.Linear(in_channels, out_channels)
         self.bn = nn.BatchNorm1d(out_channels)
-        self.relu = nn.ReLU()
+        self.relu = nn.ReLU(inplace=False)
         
     def forward(self, x):
-        x = self.relu(self.bn(self.linear(x)))
+        x = self.linear(x)
+        x = self.bn(x)
+        x = nn.functional.relu(x, inplace=False)
         
         return x
     
@@ -82,7 +84,7 @@ class SparseMiddleEncoder(nn.Module):
         return SparseSequential(
             SparseConv3d(in_ch, out_ch, k, s, p),
             nn.BatchNorm1d(out_ch),
-            nn.ReLU()
+            nn.ReLU(inplace=False)
             )
         
         
@@ -106,7 +108,7 @@ class RPN(nn.Module):
         for block in rpn_deconv_block:
 
             self.rpn_deconv_block.append(self._make_rpn_block(block))
-            out_feats += block[0][1][0][1]
+            out_feats = out_feats + block[0][1][0][1]
             
         self.reg = nn.Conv2d(out_feats, 14, 1, 1, 0)
         self.score = nn.Conv2d(out_feats, 2, 1, 1, 0)
@@ -116,7 +118,7 @@ class RPN(nn.Module):
         return nn.Sequential(
             nn.Conv2d(in_ch, out_ch, k, s, p),
             nn.BatchNorm2d(out_ch),
-            nn.ReLU()
+            nn.ReLU(inplace=False)
             )
     def _make_deconv(self, in_ch, out_ch, k, s, p):
         return nn.ConvTranspose2d(in_ch, out_ch, k, s, p)

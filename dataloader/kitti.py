@@ -8,7 +8,7 @@ import cv2
 from collections import namedtuple
 import random
 # from mmcv.ops.bbox import bbox_overlaps
-from mmdet.structures.bbox import bbox_overlaps
+from mmcv.ops.bbox import bbox_overlaps
 
 from lidar_utils.lidar_utils import (read_point_cloud, read_config, filter_point_cloud, visualize_pc, 
                                     point_cloud_to_tensor, voxelize, read_label, label_2_bb, 
@@ -17,7 +17,7 @@ from lidar_utils.lidar_utils import (read_point_cloud, read_config, filter_point
 Label = namedtuple('Label', ['type', 'h', 'w', 'l', 'x', 'y', 'z', 'theta'])
 
 def collate_fn(data):
-    batch_tensor, batch_voxels, batch_zero_pos, batch_label, batch_calib, batch_targets = zip(*data)
+    batch_tensor, batch_voxels, batch_zero_pos, batch_targets = zip(*data)
     pos, neg, reg = [], [], []
     
     for target in batch_targets:
@@ -35,7 +35,7 @@ def collate_fn(data):
         
     batch_voxels = torch.cat(batch_voxels, dim=0)
     
-    return batch_tensor, batch_voxels, batch_zero_pos, batch_label, batch_calib, batch_targets
+    return batch_tensor, batch_voxels, batch_zero_pos, batch_targets
     
 
 class KittiBase(Dataset):
@@ -119,7 +119,7 @@ class KittiBase(Dataset):
         
         bev_unoriented_anchors = box2corner(self.anchors)
         bev_unoriented_gt = box2corner(gt_boxes)
-        ious = bbox_overlaps(bev_unoriented_anchors, bev_unoriented_gt)
+        ious = bbox_overlaps(bev_unoriented_anchors, bev_unoriented_gt, offset=1)
 
         _, max_id_gt_indices = ious.max(0)
         id_gts = torch.arange(len(max_id_gt_indices))
@@ -161,7 +161,7 @@ class KittiBase(Dataset):
                     calib_data[key] = np.array([float(x) for x in value.split()])
 
     def get_sample(self, index):
-        sample = {}
+        # sample = {}
         image_path = self.image_list[index]
         label_path = self.label_list[index]
         pc_path = self.pc_list[index]
@@ -169,7 +169,7 @@ class KittiBase(Dataset):
 
         calib = read_calib_file(calib_path)
 
-        image = cv2.imread(image_path)
+        # image = cv2.imread(image_path)
         
 
         labels = self._parse_label(label_path, calib_path)            
@@ -183,7 +183,7 @@ class KittiBase(Dataset):
         zero_pos = tensor.sum(-1)
         zero_pos = zero_pos==0
 
-        return tensor, voxels, zero_pos, labels, calib, targets
+        return tensor, voxels, zero_pos, targets
         
     def __getitem__(self, index: Any) -> Any:
         item = self.get_sample(index)
